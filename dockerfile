@@ -23,9 +23,15 @@ RUN composer install --no-dev --optimize-autoloader --no-scripts
 
 RUN chown -R www-data:www-data storage bootstrap/cache public
 
-RUN rm -f /etc/nginx/http.d/default.conf
+# ... (mantenha o início igual)
+
+# Limpeza total de configs antigas para evitar o erro de duplicidade
+RUN rm -rf /etc/nginx/http.d/*.conf
+
+# Copia a configuração correta que criamos no Passo 1
 COPY ./docker/nginx.conf /etc/nginx/http.d/default.conf
 
+# ... (mantenha o resto igual)
 EXPOSE 80
 
 # No CMD, limpamos o cache para garantir que as variáveis do Coolify sejam lidas
