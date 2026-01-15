@@ -1,4 +1,4 @@
-# Estágio 1: Build dos Assets (Vite)
+# Estágio 1: Assets
 FROM node:20-alpine AS assets
 WORKDIR /app
 COPY package*.json ./
@@ -6,40 +6,26 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# Estágio 2: Ambiente PHP
+# Estágio 2: PHP & Nginx
 FROM php:8.2-fpm-alpine
 
-# Instalação de extensões necessárias e dependências de sistema
-RUN apk add --no-cache \
-    nginx \
-    supervisor \
-    libpng-dev \
-    libzip-dev \
-    zip \
-    unzip
+RUN apk add --no-cache nginx libpng-dev libzip-dev zip unzip icu-dev
+RUN docker-php-ext-install pdo_mysql gd zip intl bcmath
 
-RUN docker-php-ext-install pdo_mysql gd zip
-
-# Instala Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
-
-# Copia arquivos do projeto
 COPY . .
-# Copia assets compilados do estágio anterior
 COPY --from=assets /app/public/build ./public/build
 
-# Instala dependências do Laravel
 RUN composer install --no-dev --optimize-autoloader
+RUN chown -R www-data:www-data storage bootstrap/cache public
 
-# Ajusta permissões para o Laravel
-RUN chown -R www-data:www-data storage bootstrap/cache
-
-# Configuração do Nginx (precisamos criar este arquivo ou embutir aqui)
+# Copia a configuração que corrigimos no Passo 1
 COPY ./docker/nginx.conf /etc/nginx/http.d/default.conf
 
+# IMPORTANTE: O Coolify geralmente espera a porta 80 para Nginx
 EXPOSE 80
 
-# Script de inicialização (migrações e caches)
-CMD ["sh", "-c", "php artisan config:cache && php artisan route:cache && nginx && php-fpm"]
+# Script de inicialização corrigido
+CMD sh -c "php artisan config:cache && php artisan route:cache && nginx -g 'daemon off;' & php-fpm"
