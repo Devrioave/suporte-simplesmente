@@ -20,12 +20,18 @@ COPY --from=assets /app/public/build ./public/build
 
 RUN composer install --no-dev --optimize-autoloader
 RUN chown -R www-data:www-data storage bootstrap/cache public
+# ... (mantenha o início igual)
 
-# Copia a configuração que corrigimos no Passo 1
+# Ajusta permissões de forma recursiva e garante que a pasta public exista
+RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache /var/www/html/public
+
+# Corrija o COPY (certifique-se de que o nome do arquivo local é nginx.conf)
 COPY ./docker/nginx.conf /etc/nginx/http.d/default.conf
 
-# IMPORTANTE: O Coolify geralmente espera a porta 80 para Nginx
 EXPOSE 80
 
-# Script de inicialização corrigido
-CMD sh -c "php artisan config:cache && php artisan route:cache && nginx -g 'daemon off;' & php-fpm"
+# Script de inicialização sênior: 
+# 1. Limpa caches antigos (evita carregar caminhos de diretórios locais)
+# 2. Inicia o PHP-FPM em background (-D)
+# 3. Inicia o Nginx em foreground (daemon off) para o Docker monitorar
+CMD sh -c "php artisan config:clear && php artisan route:clear && php-fpm -D && nginx -g 'daemon off;'"
